@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: orders
+  labels:
+    app: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      serviceAccountName: orders-secret-sa1
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "orders-deployment-aws-secrets"
+      containers:
+        - name: orders
+          image: 101495568505.dkr.ecr.ap-south-1.amazonaws.com/orders:6b27b665c84e5453940c6a5a48cadaee9fe937e8
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 500m
+              memory: 200Mi
+            requests:
+              cpu: 200m
+              memory: 100Mi
+          ports:
+            - containerPort: 5600
+          envFrom:
+          - configMapRef:
+              name: order-service-dev-configmap
+          volumeMounts:
+          - name: secrets-store-inline
+            mountPath: "/mnt/secrets-store"
+            readOnly: true
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+  namespace: orders
+  labels:
+    app: orders
+spec:
+  type: NodePort
+  ports:
+    - port: 5600
+  selector:
+    app: orders
